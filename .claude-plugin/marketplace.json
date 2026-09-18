@@ -1,0 +1,41 @@
+{
+  "name": "easychen-skills",
+  "owner": {
+    "name": "easychen",
+    "url": "https://github.com/easychen"
+  },
+  "metadata": {
+    "description": "easychen 的个人 Agent Skills 合集",
+    "pluginRoot": "./"
+  },
+  "plugins": [
+    {
+      "name": "sudoboard",
+      "source": "./sudoboard",
+      "description": "为项目创建 SudoBoard 数据看板/电视大屏，本地预览后一键部署",
+      "skills": ["./"]
+    },
+    {
+      "name": "serverchan",
+      "source": "./serverchan",
+      "description": "通过 Server 酱向微信/App 推送消息通知",
+      "skills": ["./"]
+    },
+    {
+      "name": "opc",
+      "source": "./opc",
+      "description": "OPC 一人公司方法论：利基定位、价值主张、商业模式、MVP、转化循环等 9 个 skill",
+      "skills": [
+        "./opc-orchestrator",
+        "./opc-niche-positioning",
+        "./opc-value-proposition",
+        "./opc-business-model-design",
+        "./opc-mvp-designer",
+        "./opc-conversion-loop",
+        "./opc-asset-ops",
+        "./opc-dashboard-review",
+        "./opc-resource-audit"
+      ]
+    }
+  ]
+}
