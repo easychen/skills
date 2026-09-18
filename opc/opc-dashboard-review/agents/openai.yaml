@@ -1,0 +1,4 @@
+interface:
+  display_name: "经营复盘"
+  short_description: "用轻量指标识别经营瓶颈风险并给出下周期唯一重点动作"
+  default_prompt: "使用 $opc-dashboard-review 基于当前 `opc-doc/` 产物和经营数据，帮我做一次经营复盘并指出下一个周期的唯一重点。"

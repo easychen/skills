@@ -1,0 +1,4 @@
+interface:
+  display_name: "资源盘点"
+  short_description: "盘点创始人资源能力行业经验并提炼可放大的优势组合方案"
+  default_prompt: "使用 $opc-resource-audit 帮我梳理创始人资源、能力和独特优势，并写入 `opc-doc/outputs/01-resource-audit/`。"

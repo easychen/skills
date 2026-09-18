@@ -1,0 +1,4 @@
+interface:
+  display_name: "转化闭环"
+  short_description: "设计从触达到线索承接再到成交的完整转化路径与动作方案"
+  default_prompt: "使用 $opc-conversion-loop 基于当前 MVP，帮我设计渠道、内容、线索承接和成交路径。"

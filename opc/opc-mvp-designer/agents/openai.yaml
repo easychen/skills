@@ -1,0 +1,4 @@
+interface:
+  display_name: "MVP 设计"
+  short_description: "把当前方向压缩成最小可验证产品与实验闭环执行设计方案"
+  default_prompt: "使用 $opc-mvp-designer 基于已选方向和高风险假设，帮我设计最小闭环、MVP 边界和验证实验。"

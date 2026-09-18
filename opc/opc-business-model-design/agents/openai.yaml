@@ -1,0 +1,4 @@
+interface:
+  display_name: "商业模式设计"
+  short_description: "用精益画布和轻量商模画布设计一人公司完整生意结构方案"
+  default_prompt: "使用 $opc-business-model-design 基于当前定位和价值主张，帮我完成 Lean Canvas、轻量商业模式画布和高风险假设清单。"

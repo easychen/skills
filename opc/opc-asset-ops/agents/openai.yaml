@@ -1,0 +1,4 @@
+interface:
+  display_name: "资产沉淀"
+  short_description: "把内容方法渠道数据与经验整理成可复用资产池与知识结构"
+  default_prompt: "使用 $opc-asset-ops 基于转化结果和已有产物，帮我识别可沉淀资产并建立资产池与知识结构。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OPC 总编排"
+  short_description: "串联一人企业方法论全流程阶段并明确下一步行动建议清单"
+  default_prompt: "使用 $opc-orchestrator 基于当前 `opc-doc/` 状态判断我所处阶段，并告诉我下一步该做什么。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "利基定位"
+  short_description: "结合市场分析与用户细分寻找适合切入的利基市场机会清单"
+  default_prompt: "使用 $opc-niche-positioning 基于已有资源盘点结果，帮我找到适合切入的利基市场和目标细分用户。"

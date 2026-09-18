@@ -1,0 +1,4 @@
+interface:
+  display_name: "价值主张"
+  short_description: "为不同细分客户设计价值主张并选出当前最优主打表达版本"
+  default_prompt: "使用 $opc-value-proposition 根据细分客户结果，为每类客户梳理 jobs、pains、gains，并确定当前主打价值主张。"
