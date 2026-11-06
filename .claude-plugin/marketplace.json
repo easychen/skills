@@ -13,13 +13,17 @@
       "name": "sudoboard",
       "source": "./sudoboard",
       "description": "为项目创建 SudoBoard 数据看板/电视大屏，本地预览后一键部署",
-      "skills": ["./"]
+      "skills": [
+        "./"
+      ]
     },
     {
       "name": "serverchan",
       "source": "./serverchan",
       "description": "通过 Server 酱向微信/App 推送消息通知",
-      "skills": ["./"]
+      "skills": [
+        "./"
+      ]
     },
     {
       "name": "opc",
@@ -35,6 +39,14 @@
         "./opc-asset-ops",
         "./opc-dashboard-review",
         "./opc-resource-audit"
+      ]
+    },
+    {
+      "name": "cve-daily",
+      "source": "./cve-daily",
+      "description": "每日核对新 CVE 与服务器组件版本，判断影响与修复状态，推送微信（Server 酱）",
+      "skills": [
+        "./"
       ]
     }
   ]

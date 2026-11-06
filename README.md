@@ -5,12 +5,13 @@
 ## 安装
 
 ```bash
-# 交互式安装本仓库的 skill（会列出全部 11 个供选择）
+# 交互式安装本仓库的 skill（会列出全部 12 个供选择）
 npx skills add easychen/skills
 
 # 只装某一个
 npx skills add easychen/skills --skill sudoboard
 npx skills add easychen/skills --skill serverchan
+npx skills add easychen/skills --skill cve-daily
 npx skills add easychen/skills --skill opc-orchestrator
 
 # 装全部
@@ -26,6 +27,7 @@ npx skills add easychen/skills --skill '*' -y
 /plugin marketplace add easychen/skills
 /plugin install sudoboard@easychen-skills
 /plugin install serverchan@easychen-skills
+/plugin install cve-daily@easychen-skills
 /plugin install opc@easychen-skills
 ```
 
@@ -37,6 +39,7 @@ marketplace.json 里逐个声明了 skill 路径，`skills` CLI 与 Claude Code 
 skills/
 ├── sudoboard/      # SudoBoard 数据看板
 ├── serverchan/     # Server 酱消息推送
+├── cve-daily/      # 每日 CVE 影响核对与推送
 ├── opc/            # OPC 一人公司方法论（9 个子 skill）
 ├── assets/         # README 截图
 └── .claude-plugin/marketplace.json   # Claude Code 插件市场清单
@@ -59,6 +62,11 @@ skills/
 - **目录**：[`serverchan/`](./serverchan/)
 - **来源**：[easychen/serverchan-skill](https://github.com/easychen/serverchan-skill)
 - **说明**：通过 Server 酱（方糖）向微信/App 推送消息通知，支持标题、Markdown 正文及 tags/short/channel 等可选参数，自动识别 SCT / SC3 SendKey。
+
+### cve-daily
+
+- **目录**：[`cve-daily/`](./cve-daily/)
+- **说明**：每天把新公布的 CVE 和自有服务器组件版本对一遍，判断哪些真的影响、哪些已修，输出人话版风险清单并推送到微信（Server 酱）。默认增量模式（约 1 分钟），历史回填与全量重算需显式确认。数据源用 CVE 官方每小时增量 + CISA KEV + FIRST EPSS + 发行版公告，不需要任何 API key。
 
 ### opc（一人公司方法论）
 
