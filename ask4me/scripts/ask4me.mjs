@@ -15,7 +15,7 @@ const TRIAL_BASE_URL = "https://ask.app.ft07.com";
 const DEFAULT_BASE_URL = process.env.ASK4ME_BASE_URL || TRIAL_BASE_URL;
 const DEFAULT_INVITE = "askd-2026";
 const DEFAULT_EXPIRES = 600;
-const USER_AGENT = "ask4me-skill/1.2.0";
+const USER_AGENT = "ask4me-skill/1.3.0";
 const UPDATE_URLS = [
   process.env.ASK4ME_UPDATE_URL,
   "https://cdn.jsdelivr.net/gh/easychen/skills@main/ask4me/VERSION",
@@ -58,7 +58,7 @@ Options:
   --base-url <url>          default: $ASK4ME_BASE_URL or ${DEFAULT_BASE_URL}
   --api-key <key>           default: $ASK4ME_API_KEY, or auto-generated & saved
   --invite <invite>         used when auto-generating a key; default ${DEFAULT_INVITE}
-  --notify-sendkey <key>    optional; if absent, create uses web-link mode
+  --notify-sendkey <key>    ServerChan SendKey (required for create/ask)
   --title <text>            default: 需要你的确认
   --body <text>             default: 请打开链接查看并提交。
   --mcd <text>              MCD controls (buttons / input)
@@ -75,11 +75,15 @@ Options:
   --json                    accepted for compatibility; output is always JSON
   -h, --help                show this help
 
-Zero-config trial:
+Required setup:
+  export ASK4ME_SERVERCHAN_SENDKEY="SCT..."   # or sctp...
+  # No SendKey? Open https://sct.ftqq.com/ and copy one.
+
+Usage:
+  node scripts/ask4me.mjs ask --title "确认发布" --body "请确认"
+  # one-shot: create + wait
   node scripts/ask4me.mjs create --title "确认发布" --body "请确认"
-  # -> {"request_id":"...","interaction_url":"...","mode":"web"}
-  # 把 interaction_url 发给用户；用户提交后：
-  node scripts/ask4me.mjs wait --request-id req_xxx
+  # -> {"request_id":"...","interaction_url":"...","mode":"notify"}
 
 Exit codes:
   0 submitted, 1 config/HTTP/notify failure, 2 expired or timeout
@@ -422,9 +426,9 @@ function resolveConfig(args) {
   const sendkey = resolveSendkey(args);
   if (!sendkey) {
     fail(
-      "缺少 ServerChan SendKey。\n" +
-        "没有的话去 https://sct.ftqq.com/ 申请，保存到 ASK4ME_SERVERCHAN_SENDKEY。\n" +
-        "想先用链接模式（不需要 SendKey），用 create + wait 命令。"
+      "缺少 ServerChan SendKey（必填）。\n" +
+        "没有的话去 https://sct.ftqq.com/ 微信扫码登录，复制 SendKey（SCT... 或 sctp...）。\n" +
+        "保存到环境变量 ASK4ME_SERVERCHAN_SENDKEY 后重试。"
     );
   }
   return { baseUrl, apiKey, sendkey, e2eePassword: resolveE2EE(args) };
@@ -627,16 +631,21 @@ async function createOnly(args) {
   const e2eePassword = resolveE2EE(args);
   const quiet = Boolean(args.quiet);
 
+  if (!sendkey) {
+    fail(
+      "缺少 ServerChan SendKey（必填）。\n" +
+        "没有的话去 https://sct.ftqq.com/ 微信扫码登录，复制 SendKey（SCT... 或 sctp...）。\n" +
+        "保存到环境变量 ASK4ME_SERVERCHAN_SENDKEY 后重试。"
+    );
+  }
+
   await maybeCheckUpdate(baseUrl, {
     test: false,
     noUpdateCheck: Boolean(args.noUpdateCheck)
   });
 
   let payload = defaultPayload(args);
-  const webMode = !sendkey;
-  payload.notify = sendkey
-    ? { serverchan_sendkey: sendkey }
-    : { mode: "web" };
+  payload.notify = { serverchan_sendkey: sendkey };
 
   let e2eeMeta = null;
   if (e2eePassword) {
@@ -648,36 +657,17 @@ async function createOnly(args) {
     }
   }
 
-  let result;
-  try {
-    result = await createOnce({ baseUrl, apiKey, payload });
-  } catch (err) {
-    // Older servers don't know notify.mode=web. Fall back to a deliberately
-    // invalid Apprise URL: the request page is still created and usable.
-    if (webMode && err instanceof HttpError && err.status === 400 && /notify/i.test(err.body)) {
-      payload.notify = { apprise_urls: ["schan://ask4me-web-only"] };
-      result = await createOnce({ baseUrl, apiKey, payload });
-    } else {
-      throw err;
-    }
-  }
-
+  const result = await createOnce({ baseUrl, apiKey, payload });
   const out = {
     request_id: result.request_id,
     interaction_url: result.interaction_url,
-    mode: webMode ? "web" : "notify"
+    mode: "notify"
   };
   if (e2eeMeta) out.e2ee = e2eeMeta;
   process.stdout.write(JSON.stringify(out, null, 2) + "\n");
 
   if (!quiet) {
-    if (webMode) {
-      process.stderr.write(
-        "没有配置 SendKey，使用链接模式：把 interaction_url 发给用户，让他打开页面提交。\n"
-      );
-    } else {
-      process.stderr.write("已发送 ServerChan 通知；同时也可以把 interaction_url 发给用户。\n");
-    }
+    process.stderr.write("已发送 ServerChan 通知；也可以把 interaction_url 发给用户。\n");
     process.stderr.write("用户提交后，运行 wait --request-id <request_id> 取结果。\n");
   }
 }

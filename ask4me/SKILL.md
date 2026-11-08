@@ -1,6 +1,6 @@
 ---
 name: ask4me
-description: 用 Ask4Me 让真人确认、选择或填表，并等待结果（Human-in-the-Loop）。默认使用公共试用服务 https://ask.app.ft07.com，邀请码 askd-2026，开箱即用；支持多用户 API key、ServerChan 推送和可选端到端加密（E2EE）。当用户说“问一下我 / 让他确认 / 发个审批 / 收集表单 / 需要人工确认 / 用 Ask4Me”时使用。
+description: 用 Ask4Me 让真人确认、选择或填表，并等待结果（Human-in-the-Loop）。默认公共试用服务 https://ask.app.ft07.com，邀请码 askd-2026；装完只需配置 ServerChan SendKey。支持多用户 API key 与可选端到端加密（E2EE）。当用户说“问一下我 / 让他确认 / 发个审批 / 收集表单 / 需要人工确认 / 用 Ask4Me”时使用。
 tags: [human-in-the-loop, approval, form, notification, e2ee, ask4me]
 allowed-tools:
   - Bash
@@ -9,13 +9,13 @@ allowed-tools:
 env_vars:
   - key: ASK4ME_BASE_URL
     required: false
-    desc: Ask4Me 服务地址，默认 https://ask.app.ft07.com
+    desc: 默认 https://ask.app.ft07.com；只有自建服务器才需要改
   - key: ASK4ME_API_KEY
     required: false
-    desc: 可选；不填时首次 create 会自动生成并保存到 ~/.config/ask4me/config.json
+    desc: 可选；不填时首次运行会自动生成并保存到 ~/.config/ask4me/config.json
   - key: ASK4ME_SERVERCHAN_SENDKEY
-    required: false
-    desc: 可选；填了就走 ServerChan 推送，不填就走链接模式
+    required: true
+    desc: ServerChan SendKey（SCT... 或 sctp...），必填；没有就去 https://sct.ftqq.com/ 登录复制
   - key: ASK4ME_E2EE_PASSWORD
     required: false
     desc: 可选 E2EE 口令；不要写入仓库、日志或通知正文
@@ -23,13 +23,24 @@ env_vars:
 
 # Ask4Me · 让人工确认 / 选择 / 填表
 
-Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，服务生成交互链接；可以推到真人手机（ServerChan），也可以直接把链接发给对方。对方点按钮或填表后，你的命令拿到最终结果。
+Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，服务把交互链接推到真人的手机（ServerChan），对方点按钮或填表后，你的命令拿到最终结果。
 
-**这是一个纯客户端 skill，不需要部署服务。** 默认用我们提供的公共试用服务器，开箱即用；多用户模式下每个用户用自己的 API key。
+**这是纯客户端 skill，不需要部署服务。** 默认用公共试用服务器；用户唯一需要准备的是 **ServerChan SendKey**。
+
+## 默认：先用公共试用服务
+
+- 服务地址：`https://ask.app.ft07.com`
+- 邀请码：`askd-2026`
+- 这是**公共试用服务**：可能不稳定、限流、停机或清理数据；**不要放长期/敏感数据**，也不要做关键业务依赖。
+- 先让用户用试用服务跑通；如果用户需要长期使用、数据不能丢，或遇到不稳定问题，再引导他自建：
+  - <https://github.com/easychen/ask4me>
+  - <https://github.com/easychen/ask4me/blob/main/docs/ubuntu-deploy.md>
+
+**不要一上来就让用户自建服务器**——先用试用服务，门槛最低；自建是升级路径，不是前置条件。
 
 ## 自动更新检查
 
-脚本在每次 `create` / `ask` / `test` 启动时会检查一次 GitHub 上的 skill 版本（**最多每 24 小时一次**，网络失败自动忽略，不阻塞请求）。发现新版本会在 stderr 提示：
+脚本在每次 `ask` / `create` / `test` 启动时检查一次 GitHub 上的 skill 版本（**最多每 24 小时一次**，网络失败自动忽略，不阻塞请求）。发现新版本会在 stderr 提示：
 
 ```text
 [Ask4Me] 发现 skill 新版本 x.y.z（当前 a.b.c）。
@@ -39,22 +50,6 @@ Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，
 - 手动查版本：`node scripts/ask4me.mjs version`
 - 关闭检查：`ASK4ME_NO_UPDATE_CHECK=1` 或 `--no-update-check`
 - 不要自动替用户执行更新；提示后让用户决定。
-
-## 装完就能用：默认试用
-
-- 默认服务：`https://ask.app.ft07.com`；默认邀请码：`askd-2026`。
-- **不要先让用户自建服务器，也不要先让他准备 SendKey 或手动 keygen。**
-- 第一次 `create` 会自动生成并保存 API key 到 `~/.config/ask4me/config.json`（权限 600）。
-- 没有 `ASK4ME_SERVERCHAN_SENDKEY` 时走**链接模式**：`create` 返回 `interaction_url`，你把它发给用户；用户打开页面提交后，`wait` 拿结果。
-- 配了 SendKey 时自动走 ServerChan 推送，同时也可以把链接发给用户。
-- 第一句话可以这样说（简短，不要吓到用户）：
-
-  > Ask4Me 可以直接用公共试用服务，不需要你搭服务器。你把确认/表单点一下就行。试用服务不稳定，长期用再自建。
-
-**试用服务不稳定**：可能停机、限流或清理数据；不要放长期/敏感数据。正式使用或遇到问题，再引导自建：
-
-- <https://github.com/easychen/ask4me>
-- <https://github.com/easychen/ask4me/blob/main/docs/ubuntu-deploy.md>
 
 ## 先做环境检查
 
@@ -66,98 +61,71 @@ node -v
 
 如果低于 18，先让用户升级 Node，不要继续。
 
-## 第一次使用（零配置）
+## 第一次配置（只有 SendKey 一步）
 
-### 1. 服务地址与邀请码
+### 1. 服务地址和邀请码
 
-默认已经内置，不需要问用户；只有用户明确要自建/自定义时才改 `ASK4ME_BASE_URL` / `--invite`。
+默认已经内置，**不需要问用户**。只有用户明确要自建/自定义时，才改 `ASK4ME_BASE_URL` 和 `--invite`。
 
-### 2. 创建请求（create）
+### 2. API key
 
-```bash
-node scripts/ask4me.mjs create \
-  --title "确认发布" \
-  --body "请确认。" \
-  --mcd $':::buttons\n- [OK](ok)\n- [取消](cancel)\n:::'
-```
+不需要手动生成。第一次运行 `ask` 会自动生成 `a4m_askd-2026_<random>`，保存到 `~/.config/ask4me/config.json`（权限 600）。
 
-输出：
+不要回显完整 key；如果用户已有自己的 key，用 `ASK4ME_API_KEY` 覆盖。
 
-```json
-{"request_id":"req_xxx","interaction_url":"https://ask.app.ft07.com/r/...","mode":"web"}
-```
+### 3. ServerChan SendKey（必填）
 
-- `mode=web`：没有 SendKey，链接模式。把 `interaction_url` 发给用户（私下发，不要公开）。
-- `mode=notify`：有 SendKey，已推送；也可以同时把链接发给用户。
-- 第一次运行会自动生成 key，不需要手动 keygen；不要在回答里回显完整 key。
+**没有 SendKey 就不能发通知，请求没有意义。** 先问用户要 SendKey：
 
-### 3. 等待结果（wait）
+1. 打开 <https://sct.ftqq.com/>；
+2. 微信扫码登录（没有账号会自动注册）；
+3. 复制 SendKey（形如 `SCT...` 或 `sctp...`）；
+4. 保存到当前项目环境变量 `ASK4ME_SERVERCHAN_SENDKEY`。
 
-```bash
-node scripts/ask4me.mjs wait --request-id req_xxx
-```
-
-输出 `user.submitted` 的 `data`；`request.expired` 表示用户没提交。
+如果用户没有 SendKey，**停下来引导他完成这一步**，不要创建请求，也不要用所谓的“链接模式”绕过。不要 echo / log SendKey。
 
 ### 4. 可选：E2EE
 
-```bash
-export ASK4ME_E2EE_PASSWORD='和回答者另行约定的口令'
-node scripts/ask4me.mjs create --title "加密审批" --body "这段会加密"
-node scripts/ask4me.mjs wait --request-id req_xxx
-```
+问用户：“这次/以后要不要端到端加密？”
 
-- 口令只用于客户端加解密，不会发给服务端；
-- 必须另行告知回答者，不能放在通知/同一消息里；
-- 忘记口令无法恢复。
+- 不开启：不设置 `ASK4ME_E2EE_PASSWORD`，或加 `--no-e2ee`。
+- 开启：让用户设一个口令，保存到 `ASK4ME_E2EE_PASSWORD`。**口令只用于加密，不会发给服务端。**
+- 提醒用户：口令必须**另行**告知回答者，不能放在通知里；忘记口令数据不可恢复。
 
-### 5. 可选：ServerChan 推送
+### 5. 发一条测试
+
+在用户确认可以发推送后：
 
 ```bash
-export ASK4ME_SERVERCHAN_SENDKEY='SCT...'
+node scripts/ask4me.mjs ask \
+  --title "Ask4Me 配置测试" \
+  --body "收到请点 OK，确认链路正常。" \
+  --expires 300
 ```
 
-有 SendKey 时 `create` 自动走推送；没有就走链接模式。当前服务镜像不支持 Apprise。
+等用户在手机上点 **OK**。返回 `user.submitted` / `action=ok` 即配置成功。脚本会打印公共试用服务提醒；请把“不稳定、正式使用请自建”转告用户。
 
-### 6. 自定义服务器（可选）
-
-只有用户明确要自建时：
-
-```bash
-export ASK4ME_BASE_URL='https://your-domain.com'
-export ASK4ME_INVITE='your-invite'
-node scripts/ask4me.mjs create ...
-```
-
-## 正式使用（按钮 / 输入 / JSON Forms）
-
-零配置流程始终是：**`create` → 把链接或通知给用户 → `wait`**。
+## 正式使用
 
 ### 按钮 / 审批
 
 ```bash
-node scripts/ask4me.mjs create \
+node scripts/ask4me.mjs ask \
   --title "确认发布 v1.2.3" \
   --body "请确认是否发布到生产环境。" \
-  --mcd $':::buttons\n- [OK](ok)\n- [取消](cancel)\n:::'
-```
-
-把输出里的 `interaction_url` 发给用户；用户提交后：
-
-```bash
-node scripts/ask4me.mjs wait --request-id req_xxx
+  --mcd $':::buttons\n- [OK](ok)\n- [取消](cancel)\n:::' \
+  --expires 600
 ```
 
 ### 文字输入
 
 ```bash
-node scripts/ask4me.mjs create \
+node scripts/ask4me.mjs ask \
   --title "补充说明" \
   --body "请填写发布备注。" \
-  --mcd $':::input name="note" label="备注" submit="提交"\n:::'
+  --mcd $':::input name="note" label="备注" submit="提交"\n:::' \
+  --expires 600
 ```
-
-然后 `wait --request-id ...`。
 
 ### JSON Forms 表单
 
@@ -186,13 +154,14 @@ node scripts/ask4me.mjs create \
 ```
 
 ```bash
-node scripts/ask4me.mjs create \
+node scripts/ask4me.mjs ask \
   --title "填写信息" \
   --body "请填写后提交。" \
-  --jsonforms /tmp/form.json
+  --jsonforms /tmp/form.json \
+  --expires 600
 ```
 
-然后 `wait --request-id ...`。结果 JSON：
+脚本会把结果 JSON 打到 stdout：
 
 ```json
 {
@@ -208,29 +177,35 @@ node scripts/ask4me.mjs create \
 
 E2EE 开启时，`data.text` / `data.payload` 已在本地解密，直接使用。
 
-如果已经配置了 SendKey，并且想一步完成，也可以用 `ask`（内部会创建并等待）；但链接模式请用 `create` + `wait`，否则你拿不到中途的链接。
+## 试用 vs 自建
+
+| | 公共试用服务 | 自建服务器 |
+|---|---|---|
+| 地址 | `https://ask.app.ft07.com` | 自己的域名 |
+| 邀请码 | `askd-2026` | 自己配置 |
+| 数据 | 可能清理，不保证保留 | 自己控制 |
+| 稳定性 | 不保证，可能限流/停机 | 自己负责 |
+| 适合 | 试用、体验、轻量任务 | 长期使用、敏感/关键任务 |
+
+自建入口：<https://github.com/easychen/ask4me>。
+
+先用试用服务跑通，再决定是否自建；不要在用户还没体验前就要求他搭服务器。
 
 ## 对用户怎么说
 
-链接模式（没有 SendKey）：
-
-> 我把确认链接发给你了，打开后点一下/填一下就行。  
-> <interaction_url>
-
-推送模式（配了 SendKey）：
+发请求后，用一句简短的话告诉用户：
 
 > 已经把确认请求推到你手机了，请点 OK（或打开链接提交）。我这边会等你的结果。
 
-不要把 SendKey、API key、E2EE 口令、完整交互 URL 发到公开频道。链接是访问凭证；通知失败时私下发给用户。
+不要把 SendKey、API key、E2EE 口令、完整交互 URL 发到公开频道。交互 URL 是访问凭证。
 
 ## 排错
 
 | 现象 | 处理 |
 |---|---|
+| 没有 `ASK4ME_SERVERCHAN_SENDKEY` | 停下来，引导用户去 <https://sct.ftqq.com/> 微信扫码登录并复制 SendKey；不要创建请求 |
 | `401 Unauthorized` | 自动保存的 key 失效或邀请码被更换；删掉 `~/.config/ask4me/config.json` 后重试，或 `--invite` 指定新邀请码 |
-| `400 notify is required` | 旧服务器不支持链接模式；先升级服务端镜像，或临时配置 `ASK4ME_SERVERCHAN_SENDKEY` |
-| `notify.failed` | 推送失败；链接模式会忽略它继续等页面提交。检查 SendKey，或改用链接模式 |
-| `mode=web` 没有推送 | 正常：链接模式不推送，把 `interaction_url` 发给用户即可 |
+| `notify.failed` | SendKey 无效/被限流；让用户检查 ServerChan，或更换 SendKey |
 | `429` | 配额满（每 key / 每 IP / 全局）；稍后再试，不要循环重发 |
 | `request.expired` | 用户没在有效期内提交；问用户是否重发，不要自动连发 |
 | 命令被 Agent 超时 | 把 `--expires` 调小（如 120/300），或让用户先确认在线再发 |

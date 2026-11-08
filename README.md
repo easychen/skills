@@ -54,7 +54,7 @@ skills/
 
 - **目录**：[`ask4me/`](./ask4me/)
 - **服务端**：[easychen/ask4me](https://github.com/easychen/ask4me)
-- **说明**：通过 Ask4Me 让真人确认、选择或填写表单，并等待最终结果（Human-in-the-Loop）。默认使用公共试用服务（`https://ask.app.ft07.com`，邀请码 `askd-2026`），装完即用：首次运行自动生成 key，没有 SendKey 时用交互链接模式；试用服务不稳定，正式使用可自建。支持多用户 API key、ServerChan 推送和可选端到端加密（E2EE）。自带零依赖 Node 客户端脚本，能生成 key、发送按钮/输入/JSON Forms 请求、等待结果、解密回答，并每日检查 skill 更新。面向其他用户的接入话术见 [`ask4me/INSTALL_PROMPT.md`](./ask4me/INSTALL_PROMPT.md)。
+- **说明**：通过 Ask4Me 让真人确认、选择或填写表单，并等待最终结果（Human-in-the-Loop）。默认使用公共试用服务（`https://ask.app.ft07.com`，邀请码 `askd-2026`），装完即用：首次运行自动生成 key，唯一需要配置的是 ServerChan SendKey；试用服务不稳定，正式使用可自建。支持多用户 API key、ServerChan 推送和可选端到端加密（E2EE）。自带零依赖 Node 客户端脚本，能生成 key、发送按钮/输入/JSON Forms 请求、等待结果、解密回答，并每日检查 skill 更新。面向其他用户的接入话术见 [`ask4me/INSTALL_PROMPT.md`](./ask4me/INSTALL_PROMPT.md)。
 
 ### sudoboard
 
