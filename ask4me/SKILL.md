@@ -27,7 +27,19 @@ Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，
 
 **这是纯客户端 skill，不需要部署服务。** 默认用公共试用服务器；用户唯一需要准备的是 **ServerChan SendKey**。
 
-> 需要给其他用户一段可复制的话时，只输出 `INSTALL_PROMPT.md` 里的那一段；不要在 `SKILL.md` 里重复。
+## 从这里开始（GitHub 直接安装的用户）
+
+从 GitHub / `npx skills add` 安装后，**只读本文件就够了**；不需要等任何人发话术。
+
+1. 确认 Node 18+：`node -v`
+2. 先准备 ServerChan SendKey（必填）：
+   - 有：保存到 `ASK4ME_SERVERCHAN_SENDKEY`；
+   - 没有：引导用户打开 <https://sct.ftqq.com/> → 微信扫码登录（自动注册）→ 复制 SendKey（`SCT...` 或 `sctp...`）→ 保存到 `ASK4ME_SERVERCHAN_SENDKEY`。
+   - **没有 SendKey 不要创建请求。**
+3. 发请求：`node scripts/ask4me.mjs ask --title "确认发布" --body "请确认"`
+   - 首次运行会自动生成并保存 API key，不需要手动 keygen。
+4. 用户在手机上点 OK，拿到结果即接通。
+5. 之后按“正式使用”发按钮/输入/JSON Forms 请求。
 
 ## 默认：先用公共试用服务
 
@@ -229,3 +241,7 @@ E2EE 开启时，`data.text` / `data.payload` 已在本地解密，直接使用�
 - E2EE 是**按请求 opt-in**：`ASK4ME_E2EE_ENABLED=true` 只表示服务器允许，不会强制。
 - 服务端只存密文和盐，不接触 E2EE 口令。
 - 协议与测试向量见 <https://github.com/easychen/ask4me/blob/main/E2EE.md>。
+
+## 给运营方：给被引导用户的一段话
+
+`INSTALL_PROMPT.md` 只有一段，供我们主动发给用户复制；从 GitHub 直接安装的用户不需要它，按本文件即可。
