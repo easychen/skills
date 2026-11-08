@@ -14,8 +14,8 @@ import { preparePayload, decryptResult, deriveKey } from "./e2ee.mjs";
 const TRIAL_BASE_URL = "https://ask.app.ft07.com";
 const DEFAULT_BASE_URL = process.env.ASK4ME_BASE_URL || TRIAL_BASE_URL;
 const DEFAULT_INVITE = "askd-2026";
-const DEFAULT_EXPIRES = 600;
-const USER_AGENT = "ask4me-skill/1.3.2";
+const DEFAULT_EXPIRES = 3600;
+const USER_AGENT = "ask4me-skill/1.3.3";
 const UPDATE_URLS = [
   process.env.ASK4ME_UPDATE_URL,
   "https://cdn.jsdelivr.net/gh/easychen/skills@main/ask4me/VERSION",
@@ -65,7 +65,7 @@ Options:
   --mcd-file <path>         read MCD from a file
   --jsonforms <path>        JSON Forms spec file: {schema,uischema,data,submit_label}
   --jsonforms-file <path>   alias of --jsonforms
-  --expires <seconds>       default: 600
+  --expires <seconds>       default: 3600
   --e2ee-password <pass>    default: $ASK4ME_E2EE_PASSWORD (optional)
   --no-e2ee                 do not encrypt even if ASK4ME_E2EE_PASSWORD is set
   --no-update-check         skip the daily GitHub version check

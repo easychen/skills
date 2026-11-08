@@ -38,7 +38,7 @@ export ASK4ME_E2EE_PASSWORD="和回答者另行约定的口令"
 
 ```bash
 # 测试
-node scripts/ask4me.mjs ask --title "Ask4Me 配置测试" --body "收到请点 OK" --expires 300
+node scripts/ask4me.mjs ask --title "Ask4Me 配置测试" --body "收到请点 OK" --expires 3600
 
 # 按钮
 node scripts/ask4me.mjs ask --title "确认发布" --body "请确认" \

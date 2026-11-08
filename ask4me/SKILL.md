@@ -114,7 +114,7 @@ node -v
 node scripts/ask4me.mjs ask \
   --title "Ask4Me 配置测试" \
   --body "收到请点 OK，确认链路正常。" \
-  --expires 300
+  --expires 3600
 ```
 
 等用户在手机上点 **OK**。返回 `user.submitted` / `action=ok` 即配置成功。脚本会打印公共试用服务提醒；请把“不稳定、正式使用请自建”转告用户。
@@ -128,7 +128,7 @@ node scripts/ask4me.mjs ask \
   --title "确认发布 v1.2.3" \
   --body "请确认是否发布到生产环境。" \
   --mcd $':::buttons\n- [OK](ok)\n- [取消](cancel)\n:::' \
-  --expires 600
+  --expires 3600
 ```
 
 ### 文字输入
@@ -138,7 +138,7 @@ node scripts/ask4me.mjs ask \
   --title "补充说明" \
   --body "请填写发布备注。" \
   --mcd $':::input name="note" label="备注" submit="提交"\n:::' \
-  --expires 600
+  --expires 3600
 ```
 
 ### JSON Forms 表单
@@ -172,7 +172,7 @@ node scripts/ask4me.mjs ask \
   --title "填写信息" \
   --body "请填写后提交。" \
   --jsonforms /tmp/form.json \
-  --expires 600
+  --expires 3600
 ```
 
 脚本会把结果 JSON 打到 stdout：
@@ -220,6 +220,7 @@ E2EE 开启时，`data.text` / `data.payload` 已在本地解密，直接使用�
 | 没有 `ASK4ME_SERVERCHAN_SENDKEY` | 停下来，引导用户去 <https://sct.ftqq.com/> 微信扫码登录并复制 SendKey；不要创建请求 |
 | `401 Unauthorized` | 自动保存的 key 失效或邀请码被更换；删掉 `~/.config/ask4me/config.json` 后重试，或 `--invite` 指定新邀请码 |
 | `notify.failed` | SendKey 无效/被限流；让用户检查 ServerChan，或更换 SendKey |
+| 点 OK 后 `403 forbidden` | 请求已过期（默认 1 小时）；让用户尽快点，或重发并调大 `--expires` |
 | `429` | 配额满（每 key / 每 IP / 全局）；稍后再试，不要循环重发 |
 | `request.expired` | 用户没在有效期内提交；问用户是否重发，不要自动连发 |
 | 命令被 Agent 超时 | 把 `--expires` 调小（如 120/300），或让用户先确认在线再发 |
