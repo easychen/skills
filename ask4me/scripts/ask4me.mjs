@@ -9,13 +9,13 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { preparePayload, decryptResult } from "./e2ee.mjs";
+import { preparePayload, decryptResult, deriveKey } from "./e2ee.mjs";
 
 const TRIAL_BASE_URL = "https://ask.app.ft07.com";
 const DEFAULT_BASE_URL = process.env.ASK4ME_BASE_URL || TRIAL_BASE_URL;
 const DEFAULT_INVITE = "askd-2026";
 const DEFAULT_EXPIRES = 600;
-const USER_AGENT = "ask4me-skill/1.1.0";
+const USER_AGENT = "ask4me-skill/1.2.0";
 const UPDATE_URLS = [
   process.env.ASK4ME_UPDATE_URL,
   "https://cdn.jsdelivr.net/gh/easychen/skills@main/ask4me/VERSION",
@@ -23,6 +23,8 @@ const UPDATE_URLS = [
 ].filter(Boolean);
 const CACHE_DIR = join(homedir(), ".cache", "ask4me");
 const CACHE_FILE = join(CACHE_DIR, "state.json");
+const CONFIG_DIR = join(homedir(), ".config", "ask4me");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function localVersion() {
@@ -40,9 +42,11 @@ function usage() {
   process.stderr.write(`Ask4Me client
 
 Usage:
+  node scripts/ask4me.mjs create [options]       # zero-config: create & print URL
+  node scripts/ask4me.mjs wait --request-id <id> # wait for the user's submission
   node scripts/ask4me.mjs keygen [--invite <invite>]
-  node scripts/ask4me.mjs test [options]
-  node scripts/ask4me.mjs ask  [options]
+  node scripts/ask4me.mjs test [options]         # one-shot (needs SendKey)
+  node scripts/ask4me.mjs ask  [options]         # one-shot (needs SendKey)
   node scripts/ask4me.mjs version
 
 Default trial server: ${TRIAL_BASE_URL}
@@ -52,8 +56,9 @@ https://github.com/easychen/ask4me
 
 Options:
   --base-url <url>          default: $ASK4ME_BASE_URL or ${DEFAULT_BASE_URL}
-  --api-key <key>           default: $ASK4ME_API_KEY (a4m_<invite>_<random>)
-  --notify-sendkey <key>    default: $ASK4ME_SERVERCHAN_SENDKEY or $SERVERCHAN_SENDKEY
+  --api-key <key>           default: $ASK4ME_API_KEY, or auto-generated & saved
+  --invite <invite>         used when auto-generating a key; default ${DEFAULT_INVITE}
+  --notify-sendkey <key>    optional; if absent, create uses web-link mode
   --title <text>            default: 需要你的确认
   --body <text>             default: 请打开链接查看并提交。
   --mcd <text>              MCD controls (buttons / input)
@@ -64,18 +69,26 @@ Options:
   --e2ee-password <pass>    default: $ASK4ME_E2EE_PASSWORD (optional)
   --no-e2ee                 do not encrypt even if ASK4ME_E2EE_PASSWORD is set
   --no-update-check         skip the daily GitHub version check
+  --request-id <id>         for wait
+  --timeout <seconds>       wait timeout, default 900
   --quiet                   suppress progress messages on stderr
   --json                    accepted for compatibility; output is always JSON
   -h, --help                show this help
+
+Zero-config trial:
+  node scripts/ask4me.mjs create --title "确认发布" --body "请确认"
+  # -> {"request_id":"...","interaction_url":"...","mode":"web"}
+  # 把 interaction_url 发给用户；用户提交后：
+  node scripts/ask4me.mjs wait --request-id req_xxx
 
 Exit codes:
   0 submitted, 1 config/HTTP/notify failure, 2 expired or timeout
 
 Examples:
   node scripts/ask4me.mjs keygen
-  node scripts/ask4me.mjs ask --title "确认发布" --body "请确认" \\
+  node scripts/ask4me.mjs create --title "确认发布" --body "请确认" \\
     --mcd $':::buttons\\n- [OK](ok)\\n- [取消](cancel)\\n:::'
-  node scripts/ask4me.mjs ask --title "填个表" --jsonforms ./form.json
+  node scripts/ask4me.mjs create --title "填个表" --jsonforms ./form.json
 `);
 }
 
@@ -276,6 +289,14 @@ async function maybeCheckUpdate(baseUrl, options = {}) {
   }
 }
 
+class HttpError extends Error {
+  constructor(status, body) {
+    super(`${status} 请求失败：${body || "unknown"}`);
+    this.status = status;
+    this.body = body || "";
+  }
+}
+
 function httpError(status, body) {
   if (status === 401) {
     return new Error("401 Unauthorized：API key 无效或邀请码已更换，请重新 keygen。");
@@ -284,7 +305,7 @@ function httpError(status, body) {
     return new Error(`429 配额已满：${body || "请稍后再试"}`);
   }
   if (status >= 400 && status < 500) {
-    return new Error(`${status} 请求被拒绝：${body || "检查参数"}`);
+    return new HttpError(status, body || "检查参数");
   }
   return new Error(`${status} 服务端错误：${body || "unknown"}`);
 }
@@ -328,45 +349,85 @@ function defaultPayload(args) {
   return payload;
 }
 
-function resolveConfig(args) {
+function loadSavedKey(baseUrl) {
+  try {
+    const saved = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
+    if (saved && saved.base_url === baseUrl && saved.api_key) return String(saved.api_key);
+  } catch {}
+  return "";
+}
+
+function saveSavedKey(baseUrl, apiKey) {
+  try {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+    writeFileSync(
+      CONFIG_FILE,
+      JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+      { mode: 0o600 }
+    );
+  } catch {
+    // If home is read-only, the caller can still pass ASK4ME_API_KEY.
+  }
+}
+
+function resolveBase(args) {
   const baseUrl = String(
     args["base-url"] || process.env.ASK4ME_BASE_URL || DEFAULT_BASE_URL
   ).replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(baseUrl)) {
     fail("--base-url 必须以 http:// 或 https:// 开头。");
   }
+  return baseUrl;
+}
 
-  const apiKey = String(args["api-key"] || process.env.ASK4ME_API_KEY || "").trim();
-  if (!apiKey) {
-    fail(
-      "缺少 ASK4ME_API_KEY。\n" +
-        "先运行：node scripts/ask4me.mjs keygen\n" +
-        "（默认邀请码 askd-2026；自有服务器用 --invite <邀请码>）\n" +
-        "把输出保存到当前项目的环境变量 ASK4ME_API_KEY（不要提交到仓库）。"
-    );
-  }
+/**
+ * Zero-config trial: if no key is configured, generate one with the default
+ * invite and persist it in ~/.config/ask4me/config.json (mode 600).
+ */
+function resolveApiKey(args, baseUrl) {
+  const explicit = String(args["api-key"] || process.env.ASK4ME_API_KEY || "").trim();
+  if (explicit) return explicit;
 
-  const sendkey = String(
+  const saved = loadSavedKey(baseUrl);
+  if (saved) return saved;
+
+  const invite = String(args.invite || process.env.ASK4ME_INVITE || DEFAULT_INVITE).trim();
+  validateInvite(invite);
+  const key = `a4m_${invite}_${randomBytes(16).toString("hex")}`;
+  saveSavedKey(baseUrl, key);
+  process.stderr.write(
+    "[Ask4Me] 已自动生成试用 key 并保存到 ~/.config/ask4me/config.json（不显示完整 key）。\n"
+  );
+  return key;
+}
+
+function resolveSendkey(args) {
+  return String(
     args["notify-sendkey"] ||
       process.env.ASK4ME_SERVERCHAN_SENDKEY ||
       process.env.SERVERCHAN_SENDKEY ||
       ""
   ).trim();
+}
+
+function resolveE2EE(args) {
+  return args.noE2ee
+    ? ""
+    : String(args["e2ee-password"] ?? process.env.ASK4ME_E2EE_PASSWORD ?? "");
+}
+
+function resolveConfig(args) {
+  const baseUrl = resolveBase(args);
+  const apiKey = resolveApiKey(args, baseUrl);
+  const sendkey = resolveSendkey(args);
   if (!sendkey) {
     fail(
       "缺少 ServerChan SendKey。\n" +
         "没有的话去 https://sct.ftqq.com/ 申请，保存到 ASK4ME_SERVERCHAN_SENDKEY。\n" +
-        "多用户服务器要求每次请求带 notify，不能使用服务端全局渠道。"
+        "想先用链接模式（不需要 SendKey），用 create + wait 命令。"
     );
   }
-
-  const e2eePassword = args.noE2ee
-    ? ""
-    : String(
-        args["e2ee-password"] ?? process.env.ASK4ME_E2EE_PASSWORD ?? ""
-      );
-
-  return { baseUrl, apiKey, sendkey, e2eePassword };
+  return { baseUrl, apiKey, sendkey, e2eePassword: resolveE2EE(args) };
 }
 
 async function runAsk(args) {
@@ -511,6 +572,221 @@ async function runAsk(args) {
   }
 }
 
+
+async function createOnce({ baseUrl, apiKey, payload }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    const url = new URL(`${baseUrl}/v1/ask`);
+    url.searchParams.set("stream", "true");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "text/event-stream",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "User-Agent": USER_AGENT
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw httpError(response.status, text);
+    }
+    let requestId = response.headers.get("x-ask4me-request-id") || null;
+    for await (const ev of readSSE(response)) {
+      if (ev.request_id && !requestId) requestId = ev.request_id;
+      if (ev.type === "request.created") {
+        const result = {
+          request_id: requestId || ev.request_id,
+          interaction_url: ev.data?.interaction_url,
+          e2ee: ev.data?.e2ee
+        };
+        controller.abort();
+        return result;
+      }
+      if (ev.type === "notify.failed") {
+        throw new Error(`通知发送失败：${ev.data?.error || "unknown"}`);
+      }
+    }
+    throw new Error("创建请求时连接提前结束。");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Create a request and print {request_id, interaction_url}.
+ * No SendKey required: falls back to a web link the Agent can send to the user.
+ */
+async function createOnly(args) {
+  const baseUrl = resolveBase(args);
+  const apiKey = resolveApiKey(args, baseUrl);
+  const sendkey = resolveSendkey(args);
+  const e2eePassword = resolveE2EE(args);
+  const quiet = Boolean(args.quiet);
+
+  await maybeCheckUpdate(baseUrl, {
+    test: false,
+    noUpdateCheck: Boolean(args.noUpdateCheck)
+  });
+
+  let payload = defaultPayload(args);
+  const webMode = !sendkey;
+  payload.notify = sendkey
+    ? { serverchan_sendkey: sendkey }
+    : { mode: "web" };
+
+  let e2eeMeta = null;
+  if (e2eePassword) {
+    const prepared = preparePayload(payload, e2eePassword);
+    payload = prepared.payload;
+    e2eeMeta = payload.e2ee;
+    if (!quiet) {
+      process.stderr.write("已启用端到端加密（E2EE）；口令不会被发送到服务端。\n");
+    }
+  }
+
+  let result;
+  try {
+    result = await createOnce({ baseUrl, apiKey, payload });
+  } catch (err) {
+    // Older servers don't know notify.mode=web. Fall back to a deliberately
+    // invalid Apprise URL: the request page is still created and usable.
+    if (webMode && err instanceof HttpError && err.status === 400 && /notify/i.test(err.body)) {
+      payload.notify = { apprise_urls: ["schan://ask4me-web-only"] };
+      result = await createOnce({ baseUrl, apiKey, payload });
+    } else {
+      throw err;
+    }
+  }
+
+  const out = {
+    request_id: result.request_id,
+    interaction_url: result.interaction_url,
+    mode: webMode ? "web" : "notify"
+  };
+  if (e2eeMeta) out.e2ee = e2eeMeta;
+  process.stdout.write(JSON.stringify(out, null, 2) + "\n");
+
+  if (!quiet) {
+    if (webMode) {
+      process.stderr.write(
+        "没有配置 SendKey，使用链接模式：把 interaction_url 发给用户，让他打开页面提交。\n"
+      );
+    } else {
+      process.stderr.write("已发送 ServerChan 通知；同时也可以把 interaction_url 发给用户。\n");
+    }
+    process.stderr.write("用户提交后，运行 wait --request-id <request_id> 取结果。\n");
+  }
+}
+
+async function waitOnly(args) {
+  const baseUrl = resolveBase(args);
+  const apiKey = resolveApiKey(args, baseUrl);
+  const e2eePassword = resolveE2EE(args);
+  const quiet = Boolean(args.quiet);
+  const requestId = String(args["request-id"] || args._[1] || "").trim();
+  if (!requestId) {
+    fail("用法：node scripts/ask4me.mjs wait --request-id <request_id>");
+  }
+  const timeoutSec = Number(args.timeout || process.env.ASK4ME_WAIT_TIMEOUT || 900);
+  if (!Number.isFinite(timeoutSec) || timeoutSec < 10) {
+    fail("--timeout 必须是 >=10 的秒数。");
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), (timeoutSec + 30) * 1000);
+  let e2eeKey = null;
+  let attempts = 0;
+
+  if (!quiet) {
+    process.stderr.write(`等待 ${requestId} 的提交结果...\n`);
+  }
+
+  try {
+    while (true) {
+      const url = new URL(`${baseUrl}/v1/ask`);
+      url.searchParams.set("stream", "true");
+      url.searchParams.set("request_id", requestId);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${apiKey}`,
+          "User-Agent": USER_AGENT
+        },
+        body: null,
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw httpError(response.status, text);
+      }
+
+      for await (const ev of readSSE(response)) {
+        if (ev.type === "request.created") {
+          const meta = ev.data?.e2ee;
+          if (meta && e2eePassword && !e2eeKey) {
+            e2eeKey = deriveKey(e2eePassword, meta.salt, meta.iterations);
+          }
+          continue;
+        }
+        if (ev.type === "notify.sent" || ev.type === "notify.failed" || ev.type === "notify.skipped") {
+          continue;
+        }
+        if (ev.type === "user.submitted") {
+          let data = ev.data || {};
+          if (e2eeKey) {
+            try {
+              data = decryptResult(data, e2eeKey);
+            } catch (err) {
+              throw new Error(`回答解密失败：${err.message}`);
+            }
+          }
+          const out = {
+            request_id: requestId,
+            last_event_type: "user.submitted",
+            data
+          };
+          process.stdout.write(JSON.stringify(out, null, 2) + "\n");
+          process.exitCode = 0;
+          return;
+        }
+        if (ev.type === "request.expired") {
+          process.stderr.write("请求已过期，用户没有提交。\n");
+          process.stdout.write(
+            JSON.stringify(
+              { request_id: requestId, last_event_type: "request.expired", data: {} },
+              null,
+              2
+            ) + "\n"
+          );
+          process.exitCode = 2;
+          return;
+        }
+      }
+
+      if (attempts++ >= 3) {
+        throw new Error("SSE 连接中断，重试次数用尽。");
+      }
+      await sleep(500);
+    }
+  } catch (err) {
+    if (err && err.name === "AbortError") {
+      process.stderr.write("等待超时。\n");
+      process.exitCode = 2;
+    } else {
+      process.stderr.write(`${err.message}\n`);
+      process.exitCode = 1;
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function keygen(args) {
   const invite = String(args.invite || process.env.ASK4ME_INVITE || DEFAULT_INVITE).trim();
   validateInvite(invite);
@@ -535,6 +811,14 @@ async function main() {
   }
   if (command === "keygen") {
     keygen(args);
+    return;
+  }
+  if (command === "create") {
+    await createOnly(args);
+    return;
+  }
+  if (command === "wait") {
+    await waitOnly(args);
     return;
   }
   if (command === "ask" || command === "test") {
