@@ -1,6 +1,6 @@
 ---
 name: ask4me
-description: 用 Ask4Me 让真人确认、选择或填表，并等待结果（Human-in-the-Loop）。当用户说“问一下我 / 让他确认 / 发个审批 / 收集表单 / 需要人工确认 / 用 Ask4Me”时使用。支持多用户 API key、ServerChan 推送和可选端到端加密（E2EE）。
+description: 用 Ask4Me 让真人确认、选择或填表，并等待结果（Human-in-the-Loop）。默认使用公共试用服务 https://ask.app.ft07.com，邀请码 askd-2026，开箱即用；支持多用户 API key、ServerChan 推送和可选端到端加密（E2EE）。当用户说“问一下我 / 让他确认 / 发个审批 / 收集表单 / 需要人工确认 / 用 Ask4Me”时使用。
 tags: [human-in-the-loop, approval, form, notification, e2ee, ask4me]
 allowed-tools:
   - Bash
@@ -25,7 +25,31 @@ env_vars:
 
 Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，服务把交互链接推到真人的手机（ServerChan），对方点按钮或填表后，你的命令拿到最终结果。
 
-**这是一个纯客户端 skill，不需要部署服务。** 默认服务地址 `https://ask.app.ft07.com`；多用户模式下每个用户用自己的 API key。
+**这是一个纯客户端 skill，不需要部署服务。** 默认用我们提供的公共试用服务器，开箱即用；多用户模式下每个用户用自己的 API key。
+
+## 默认：先用公共试用服务
+
+- 服务地址：`https://ask.app.ft07.com`
+- 邀请码：`askd-2026`
+- 这是**公共试用服务**：可能不稳定、限流、停机或清理数据；**不要放长期/敏感数据**，也不要做关键业务依赖。
+- 先让用户用试用服务跑通；如果用户需要长期使用、数据不能丢，或遇到不稳定问题，再引导他自建独立服务器：
+  - <https://github.com/easychen/ask4me>
+  - 部署教程：<https://github.com/easychen/ask4me/blob/main/docs/ubuntu-deploy.md>
+
+**不要一上来就让用户自建服务器**——先用试用服务，门槛最低；自建是升级路径，不是前置条件。
+
+## 自动更新检查
+
+脚本在每次 `ask` / `test` 启动时会检查一次 GitHub 上的 skill 版本（**最多每 24 小时一次**，网络失败自动忽略，不阻塞请求）。发现新版本会在 stderr 提示：
+
+```text
+[Ask4Me] 发现 skill 新版本 x.y.z（当前 a.b.c）。
+[Ask4Me] 更新：npx skills add easychen/skills --skill ask4me
+```
+
+- 手动查版本：`node scripts/ask4me.mjs version`
+- 关闭检查：`ASK4ME_NO_UPDATE_CHECK=1` 或 `--no-update-check`
+- 不要自动替用户执行更新；提示后让用户决定。
 
 ## 先做环境检查
 
@@ -43,23 +67,26 @@ node -v
 
 ### 1. 服务地址
 
-默认 `https://ask.app.ft07.com`。如果用户给的是别的地址，记到 `ASK4ME_BASE_URL`。
+默认直接用 `https://ask.app.ft07.com`，不需要问。只有用户明确说自己有独立服务器时，才改 `ASK4ME_BASE_URL`。
 
 ### 2. 邀请码 → API key
 
-问用户要 Ask4Me 的邀请码（由服务提供者发放，通常形如 `trial-2026`）。然后生成 key：
+默认邀请码是 `askd-2026`，直接生成：
 
 ```bash
-node scripts/ask4me.mjs keygen --invite <邀请码>
+node scripts/ask4me.mjs keygen
 ```
 
-输出形如 `a4m_trial-2026_<32位hex>`。把它保存到**当前项目的环境变量** `ASK4ME_API_KEY`。
+输出形如 `a4m_askd-2026_<32位hex>`。把它保存到**当前项目的环境变量** `ASK4ME_API_KEY`。
+
+如果用户有自己的邀请码，才用 `--invite <邀请码>` 覆盖。
 
 安全要求：
 
 - 不要把完整 key 回显到最终回答、日志或公开文件；
 - 不要写进仓库里的 `.env` 并提交；
 - 如果必须让用户看到，提醒他这是租户凭证，等同于密码。
+- `askd-2026` 是公开试用码，配额有限；不要拿它做长期/敏感业务。
 
 ### 3. ServerChan 通知渠道
 
@@ -86,6 +113,22 @@ node scripts/ask4me.mjs test --expires 300
 ```
 
 等用户在手机上点 **OK**。返回 `user.submitted` / `action=ok` 即配置成功。若失败，按下面的“排错”处理。
+
+测试时脚本会打印公共试用服务器的提醒；请把这个提醒转告用户：**试用服务不稳定，正式使用请自建**。
+
+## 试用 vs 自建
+
+| | 公共试用服务 | 自建服务器 |
+|---|---|---|
+| 地址 | `https://ask.app.ft07.com` | 自己的域名 |
+| 邀请码 | `askd-2026` | 自己配置 |
+| 数据 | 可能清理，不保证保留 | 自己控制 |
+| 稳定性 | 不保证，可能限流/停机 | 自己负责 |
+| 适合 | 试用、体验、轻量任务 | 长期使用、敏感/关键任务 |
+
+自建入口：<https://github.com/easychen/ask4me>（Docker / Ubuntu 部署教程见仓库 `docs/ubuntu-deploy.md`）。
+
+先用试用服务跑通，再决定是否自建；不要在用户还没体验前就要求他搭服务器。
 
 ## 正式使用
 
@@ -189,6 +232,7 @@ E2EE 开启时，`data.text` / `data.payload` 已在本地解密，直接使用�
 
 ## 服务端事实
 
+- 默认是**公共试用服务**：可能不稳定、限流、停机或清理数据；不要放长期/敏感数据。正式使用请自建。
 - 多用户模式：key = 租户，无账号；服务端不保存用户资料。
 - `notify` 必须每请求携带；全局 ServerChan/Apprise 不生效。
 - E2EE 是**按请求 opt-in**：`ASK4ME_E2EE_ENABLED=true` 只表示服务器允许，不会强制。
