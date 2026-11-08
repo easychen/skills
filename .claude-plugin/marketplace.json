@@ -10,6 +10,14 @@
   },
   "plugins": [
     {
+      "name": "ask4me",
+      "source": "./ask4me",
+      "description": "通过 Ask4Me 让真人确认、选择或填表并等待结果，支持多用户 API key 与可选 E2EE",
+      "skills": [
+        "./"
+      ]
+    },
+    {
       "name": "sudoboard",
       "source": "./sudoboard",
       "description": "为项目创建 SudoBoard 数据看板/电视大屏，本地预览后一键部署",

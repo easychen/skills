@@ -5,10 +5,11 @@
 ## 安装
 
 ```bash
-# 交互式安装本仓库的 skill（会列出全部 12 个供选择）
+# 交互式安装本仓库的 skill（会列出全部 skill 供选择）
 npx skills add easychen/skills
 
 # 只装某一个
+npx skills add easychen/skills --skill ask4me
 npx skills add easychen/skills --skill sudoboard
 npx skills add easychen/skills --skill serverchan
 npx skills add easychen/skills --skill cve-daily
@@ -25,6 +26,7 @@ npx skills add easychen/skills --skill '*' -y
 ```text
 # 在 Claude Code 里执行
 /plugin marketplace add easychen/skills
+/plugin install ask4me@easychen-skills
 /plugin install sudoboard@easychen-skills
 /plugin install serverchan@easychen-skills
 /plugin install cve-daily@easychen-skills
@@ -37,6 +39,7 @@ marketplace.json 里逐个声明了 skill 路径，`skills` CLI 与 Claude Code 
 
 ```
 skills/
+├── ask4me/         # Human-in-the-Loop：确认 / 选择 / 填表
 ├── sudoboard/      # SudoBoard 数据看板
 ├── serverchan/     # Server 酱消息推送
 ├── cve-daily/      # 每日 CVE 影响核对与推送
@@ -46,6 +49,12 @@ skills/
 ```
 
 ## Skill 索引
+
+### ask4me
+
+- **目录**：[`ask4me/`](./ask4me/)
+- **服务端**：[easychen/ask4me](https://github.com/easychen/ask4me)
+- **说明**：通过 Ask4Me 让真人确认、选择或填写表单，并等待最终结果（Human-in-the-Loop）。支持多用户 API key、ServerChan 推送，以及可选的端到端加密（E2EE）。自带零依赖 Node 客户端脚本，能生成 key、发送按钮/输入/JSON Forms 请求、等待结果并解密回答。面向其他用户的接入话术见 [`ask4me/INSTALL_PROMPT.md`](./ask4me/INSTALL_PROMPT.md)。
 
 ### sudoboard
 
