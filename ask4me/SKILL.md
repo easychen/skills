@@ -27,6 +27,8 @@ Ask4Me 是一个已部署好的 Human-in-the-Loop 服务：你发一个请求，
 
 **这是纯客户端 skill，不需要部署服务。** 默认用公共试用服务器；用户唯一需要准备的是 **ServerChan SendKey**。
 
+> 需要给其他用户一段可复制的话时，只输出 `INSTALL_PROMPT.md` 里的那一段；不要在 `SKILL.md` 里重复。
+
 ## 默认：先用公共试用服务
 
 - 服务地址：`https://ask.app.ft07.com`

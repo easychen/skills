@@ -15,7 +15,7 @@ const TRIAL_BASE_URL = "https://ask.app.ft07.com";
 const DEFAULT_BASE_URL = process.env.ASK4ME_BASE_URL || TRIAL_BASE_URL;
 const DEFAULT_INVITE = "askd-2026";
 const DEFAULT_EXPIRES = 600;
-const USER_AGENT = "ask4me-skill/1.3.0";
+const USER_AGENT = "ask4me-skill/1.3.1";
 const UPDATE_URLS = [
   process.env.ASK4ME_UPDATE_URL,
   "https://cdn.jsdelivr.net/gh/easychen/skills@main/ask4me/VERSION",
